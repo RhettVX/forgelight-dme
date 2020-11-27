@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 var DME = require("./dme.js"),
-    Jenkins = require("jenkins-hash"),
+    Jenkins = require("./hash-jenkins"),
     xml2js = require("xml2js"),
     fs = require("fs"),
     path = require("path");
@@ -65,20 +65,25 @@ function toJSON(dme) {
 
 function toOBJ(dme) {
     var obj = [];
+    // obj.push("o testmodel");
     for (var i=0;i<dme.meshes.length;i++) {
+        console.log("\n### EXPORT MESH " + i + " ##################");
         var mesh = dme.meshes[i];
+        console.log("vertexCount: " + mesh.vertices.length);
         for (var j=0,l=mesh.vertices.length;j<l;j++) {
             var vertex = mesh.vertices[j];
             obj.push(
                 "v " + vertex[0] + " " + vertex[1] + " " + vertex[2]
             );
         }
+        console.log("normalCount: " + mesh.normals.length);
         for (var j=0,l=mesh.normals.length;j<l;j++) {
             var normal = mesh.normals[j];
             obj.push(
                 "vn " + normal[0] + " " + normal[1] + " " + normal[2]
             );
         }
+        console.log("uvCount: " + mesh.uvs.length);
         var uvs = mesh.uvs[0];
         for (var j=0,l=uvs.length;j<l;j++) {
             var uv = uvs[j];
@@ -86,10 +91,23 @@ function toOBJ(dme) {
                 "vt " + uv[0] + " " + uv[1]
             );
         }
+
+    }
+
+    for (var i=0;i<dme.meshes.length;i++) {
+        var mesh = dme.meshes[i];
+        obj.push("g " + "mesh" + i);
+        console.log("indexCount: " + mesh.indices.length);
+        // index start
+        var indexStart = 0;
+        if (i > 0) {
+            indexStart = dme.meshes[i-1].vertices.length;
+        }
+        console.log("indexStarts: " + indexStart);
         for (var j=0,l=mesh.indices.length;j<l;j+=3) {
-            var v0 = mesh.indices[j] + 1,
-                v1 = mesh.indices[j+1] + 1,
-                v2 = mesh.indices[j+2] + 1;
+            var v0 = mesh.indices[j] + 1 + indexStart,
+                v1 = mesh.indices[j+1] + 1 + indexStart,
+                v2 = mesh.indices[j+2] + 1 + indexStart;
             obj.push(
                 "f " + 
                     v1 + "/" + v1 + " " + 
@@ -97,6 +115,7 @@ function toOBJ(dme) {
                     v2 + "/" + v2
             );
         }
+        
     }
     return obj.join("\n");
 }
@@ -120,17 +139,29 @@ if (inPath) {
                 obj = [];
 
             if (!outPath) {
-                outPath = "./";
+                outPath = "./" + path.basename(inPath, ".dme");
+                console.log(outPath);
             }
+
+            fs.mkdirSync(outPath, 
+              { recursive: true }, (err) => { 
+                if (err) { 
+                  return console.error(err); 
+                } 
+                console.log('Directory created successfully!'); 
+              }); 
+
             if (!fs.existsSync(outPath)) {
                 throw "outPath does not exist";
             }
 
             var obj = toOBJ(dme);
 
-            var objPath = path.join(outPath, path.basename(inPath, ".dme") + ".obj");
+            var objPath = outPath + "/" + path.basename(inPath, ".dme") + ".obj";
             console.log("Writing OBJ data to " + objPath);
             fs.writeFileSync(objPath, obj);
+            fs.writeFileSync(outPath + "/" + path.basename(inPath, ".dme") + "_TEXTURES.txt", dme.dmat.textures)
+
             break;
         case "json":
             console.log("Reading DME data from " + inPath);
