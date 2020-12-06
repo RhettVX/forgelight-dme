@@ -155,11 +155,11 @@ if (inPath) {
                 throw "outPath does not exist";
             }
 
-            var obj = toOBJ(dme);
+            // var obj = toOBJ(dme);
 
             var objPath = outPath + "/" + path.basename(inPath, ".dme") + ".obj";
             console.log("Writing OBJ data to " + objPath);
-            fs.writeFileSync(objPath, obj);
+            // fs.writeFileSync(objPath, obj);
             fs.writeFileSync(outPath + "/" + path.basename(inPath, ".dme") + "_TEXTURES.txt", dme.dmat.textures)
 
             break;

@@ -318,12 +318,17 @@ function readDME(data) {
     if (!matdef) {
         throw "Unknown material definition: " + material.definition;
     }
+
+    // TODO(rhett)
+    return dmod;
+
     if (matdef.drawStyles.length == 0) {
         throw "No draw styles for material definition";
     }
     var drawStyle = matdef.drawStyles[0];
 
     var inputLayout = Materials.InputLayouts[Jenkins.oaat(drawStyle.inputLayout)];
+    console.log("inputLayout: " + drawStyle.inputLayout);
 
     if (!inputLayout) {
         throw "Input layout not found:" + drawStyle.inputLayout;
@@ -336,7 +341,6 @@ function readDME(data) {
     offset += 24;
 
     var numMeshes = data.readUInt32LE(offset);
-    numMeshes = 2;
     console.log("meshCount: ", numMeshes);
     offset += 4;
 
@@ -383,6 +387,7 @@ function readDME(data) {
             var stride = data.readUInt32LE(offset);
             console.log("bytesPerVertex: " + stride);
             offset += 4;
+            console.log("vertexStream start: " + offset)
             vertexStreams[j] = {
                 stride: stride,
                 data: data.slice(offset, offset + numVertices * stride),
@@ -390,6 +395,7 @@ function readDME(data) {
                 originalOffset: offset
             };
             offset += stride * numVertices;
+            console.log("vertexStream end: " + offset)
         }
         for (var j=0;j<numVertices;j++) {
             for (var k=0;k<numVertexStreams;k++) {
@@ -400,10 +406,12 @@ function readDME(data) {
                     stream = vertexStreams[entry.stream],
                     value;
 
+                /// ERROR: stream undefined /////////////////////////////
                 if (stream.offset >= stream.stride) {
                     continue;
                 }
 
+                // console.log("entry usage: " + entry.usage);
                 value = readInputLayoutEntry(entry.type, stream.data, stream.stride * j + stream.offset);
 
                 switch (entry.usage) {
@@ -437,6 +445,7 @@ function readDME(data) {
                         uvs[entry.usageIndex].push(value);
                         break;
                 }
+                // console.log("entry pushed");
                 stream.offset += InputLayoutEntrySizes[entry.type];
             }
         }
@@ -470,7 +479,6 @@ function readDME(data) {
 
         // Indices
         var indices = [];
-        console.log("indicesStart: " + offset);
         for (var j=0;j<numIndices;j+=3) {
             if (indexSize == 2) {
                 indices.push(
@@ -488,79 +496,78 @@ function readDME(data) {
             offset += indexSize*3;
         }
         mesh.indices = indices;
-        console.log("indicesEnd: " + offset);
 
         dmod.meshes.push(mesh);
     }
 
-    // var totalDrawCallCount = data.readUInt32LE(offset);
-    // console.log("totalDrawCallCount: " + totalDrawCallCount + "\noffset: " + offset);
-    // offset += 4;
-    // mesh.drawCalls = [];
-    // for (var j=0;j<totalDrawCallCount;j++) {
-    //     var drawCall = {};
-    //     drawCall.unknown0 = data.readUInt32LE(offset);
-    //     offset += 4;
-    //     drawCall.boneStart = data.readUInt32LE(offset);
-    //     offset += 4;
-    //     drawCall.boneCount = data.readUInt32LE(offset);
-    //     offset += 4;
-    //     drawCall.delta = data.readUInt32LE(offset);
-    //     offset += 4;
-    //     drawCall.unknown1 = data.readUInt32LE(offset);
-    //     offset += 4;
-    //     drawCall.vertexOffset = data.readUInt32LE(offset);
-    //     offset += 4;
-    //     drawCall.vertexCount = data.readUInt32LE(offset);
-    //     offset += 4;
-    //     drawCall.indexOffset = data.readUInt32LE(offset);
-    //     offset += 4;
-    //     drawCall.indexCount = data.readUInt32LE(offset);
-    //     offset += 4;
+    var totalDrawCallCount = data.readUInt32LE(offset);
+    console.log("totalDrawCallCount: " + totalDrawCallCount + "\noffset: " + offset);
+    offset += 4;
+    mesh.drawCalls = [];
+    for (var j=0;j<totalDrawCallCount;j++) {
+        var drawCall = {};
+        drawCall.unknown0 = data.readUInt32LE(offset);
+        offset += 4;
+        drawCall.boneStart = data.readUInt32LE(offset);
+        offset += 4;
+        drawCall.boneCount = data.readUInt32LE(offset);
+        offset += 4;
+        drawCall.delta = data.readUInt32LE(offset);
+        offset += 4;
+        drawCall.unknown1 = data.readUInt32LE(offset);
+        offset += 4;
+        drawCall.vertexOffset = data.readUInt32LE(offset);
+        offset += 4;
+        drawCall.vertexCount = data.readUInt32LE(offset);
+        offset += 4;
+        drawCall.indexOffset = data.readUInt32LE(offset);
+        offset += 4;
+        drawCall.indexCount = data.readUInt32LE(offset);
+        offset += 4;
 
-    //     mesh.drawCalls.push(drawCall);
-    // }
+        mesh.drawCalls.push(drawCall);
+    }
 
-    // var boneMapEntryCount = data.readUInt32LE(offset);
-    // console.log("boneMapEntryCount: " + boneMapEntryCount);
-    // offset += 4;
-    // mesh.boneMapEntries = [];
-    // for (var j=0;j<boneMapEntryCount;j++) {
-    //     var boneMapEntry = {};
-    //     boneMapEntry.boneIndex = data.readUInt16LE(offset);
-    //     offset += 2;
-    //     boneMapEntry.globalIndex = data.readUInt16LE(offset);
-    //     offset += 2;
-    //     mesh.boneMapEntries.push(boneMapEntry);
-    // }
+    var boneMapEntryCount = data.readUInt32LE(offset);
+    console.log("boneMapEntryCount: " + boneMapEntryCount);
+    offset += 4;
+    mesh.boneMapEntries = [];
+    for (var j=0;j<boneMapEntryCount;j++) {
+        var boneMapEntry = {};
+        boneMapEntry.boneIndex = data.readUInt16LE(offset);
+        offset += 2;
+        boneMapEntry.globalIndex = data.readUInt16LE(offset);
+        offset += 2;
+        mesh.boneMapEntries.push(boneMapEntry);
+    }
 
-    // var boneCount = data.readUInt32LE(offset);
-    // offset += 4;
-    // mesh.bones = [];
-    // for (var j=0;j<boneCount;j++) {
-    //     var bone = {};
-    //     bone.inverseBindPose = [
-    //         data.readFloatLE(offset), data.readFloatLE(offset+4), data.readFloatLE(offset+8), 0,
-    //         data.readFloatLE(offset+12), data.readFloatLE(offset+16), data.readFloatLE(offset+20), 0,
-    //         data.readFloatLE(offset+24), data.readFloatLE(offset+28), data.readFloatLE(offset+32), 0,
-    //         data.readFloatLE(offset+36), data.readFloatLE(offset+40), data.readFloatLE(offset+44), 1
-    //     ];
-    //     offset += 48;
-    //     mesh.bones.push(bone);
-    // }
-    // for (var j=0;j<boneCount;j++) {
-    //     var bone = mesh.bones[j];
-    //     bone.bbox = [
-    //         data.readFloatLE(offset), data.readFloatLE(offset+4), data.readFloatLE(offset+8),
-    //         data.readFloatLE(offset+12), data.readFloatLE(offset+16), data.readFloatLE(offset+20)
-    //     ];
-    //     offset += 24;
-    // }
-    // for (var j=0;j<boneCount;j++) {
-    //     var bone = mesh.bones[j];
-    //     bone.nameHash = data.readUInt32LE(offset);
-    //     offset += 4;
-    // }
+    var boneCount = data.readUInt32LE(offset);
+    offset += 4;
+    mesh.bones = [];
+    for (var j=0;j<boneCount;j++) {
+        var bone = {};
+        bone.inverseBindPose = [
+            data.readFloatLE(offset), data.readFloatLE(offset+4), data.readFloatLE(offset+8), 0,
+            data.readFloatLE(offset+12), data.readFloatLE(offset+16), data.readFloatLE(offset+20), 0,
+            data.readFloatLE(offset+24), data.readFloatLE(offset+28), data.readFloatLE(offset+32), 0,
+            data.readFloatLE(offset+36), data.readFloatLE(offset+40), data.readFloatLE(offset+44), 1
+        ];
+        offset += 48;
+        mesh.bones.push(bone);
+    }
+    for (var j=0;j<boneCount;j++) {
+        var bone = mesh.bones[j];
+        bone.bbox = [
+            data.readFloatLE(offset), data.readFloatLE(offset+4), data.readFloatLE(offset+8),
+            data.readFloatLE(offset+12), data.readFloatLE(offset+16), data.readFloatLE(offset+20)
+        ];
+        offset += 24;
+    }
+    for (var j=0;j<boneCount;j++) {
+        var bone = mesh.bones[j];
+        bone.nameHash = data.readUInt32LE(offset);
+        offset += 4;
+    }
 
     return dmod;
 }
